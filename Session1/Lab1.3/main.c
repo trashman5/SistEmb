@@ -2,14 +2,14 @@
 #include "gpio_v2.h"
 #include "interrupt.h"
 #include "uartStdio.h"
-#include "uart_irda_cir.h"      // UARTCharGetNonBlocking()
+#include "uart_irda_cir.h"
 #include <string.h>             // strcmp()
 
 void delay(int val){ for(int i=0; i<val; i++);}
 
 static int flags[4] = {0,0,0,0};
 
-/* Parses "ledN=on" / "ledN=off" (line is already lowercase) */
+/* Parses "ledN=on" / "ledN=off" */
 static void parseCommand(char *s){
     while (*s == ' ') s++;                       // skip leading spaces
     char *end = s;
@@ -34,10 +34,10 @@ static void parseCommand(char *s){
 }
 
 int main(void){
-    UARTStdioInit(); //Uart0 enable
-    GPIO1ModuleClkConfig(); //Enabling functional clocks for GPIO1
-    GPIOModuleEnable(SOC_GPIO_1_REGS); //Enabling the GPIO
-    GPIOModuleReset(SOC_GPIO_1_REGS); //Resetting the GPIO1 module
+    UARTStdioInit();
+    GPIO1ModuleClkConfig();
+    GPIOModuleEnable(SOC_GPIO_1_REGS);
+    GPIOModuleReset(SOC_GPIO_1_REGS);
 
     for (int j=21; j<25; j++){
         GPIODirModeSet(SOC_GPIO_1_REGS, j, GPIO_DIR_OUTPUT); //Set all user LED to outputs
@@ -47,13 +47,13 @@ int main(void){
     UARTprintf("\nType command: ");
 
     char line[32];
-    int len = 0;        // chars currently in line[]
+    int len = 0;
 
     while(1){
-        /* 1. Read every char waiting in the UART FIFO, never block */
+
         int c;
         while ((c = UARTCharGetNonBlocking(SOC_UART_0_REGS)) != -1){
-            if (c == '\r' || c == '\n'){             // Enter -> process line
+            if (c == '\r' || c == '\n'){             // Enter
                 if (len > 0){
                     line[len] = '\0';
                     parseCommand(line);
@@ -65,14 +65,14 @@ int main(void){
                     len--;
                     UARTPutc('\b'); UARTPutc(' '); UARTPutc('\b');
                 }
-            } else if (len < 31){            // normal char
-                if (c >= 'A' && c <= 'Z') c += 32;   // to lowercase
+            } else if (len < 31){
+                if (c >= 'A' && c <= 'Z') c += 32;
                 line[len++] = (char)c;
-                UARTPutc((unsigned char)c);          // echo
+                UARTPutc((unsigned char)c);
             }
         }
 
-        /* 2. Blink: enabled LEDs on, wait, all LEDs off, wait */
+
         for (int j=21; j<25; j++){
             if (flags[j-21]==1){
                 GPIOPinWrite(SOC_GPIO_1_REGS, j, GPIO_PIN_HIGH); //High
