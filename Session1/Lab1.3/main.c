@@ -5,16 +5,9 @@
 #include "uart_irda_cir.h"      // UARTCharGetNonBlocking()
 #include <string.h>             // strcmp()
 
-#define LED_FIRST   21          // USR0..USR3 = GPIO1_21..GPIO1_24
-#define LED_COUNT   4
-#define LINE_MAX    32
-#define TICK_DELAY  0x100                       // one short "tick"
-#define ON_TICKS    (0x5000  / TICK_DELAY)      // same on-time as before
-#define OFF_TICKS   (0x15000 / TICK_DELAY)      // same off-time as before
-
 void delay(int val){ for(int i=0; i<val; i++);}
 
-static int flags[LED_COUNT] = {0,0,0,0};
+static int flags[4] = {0,0,0,0};
 
 /* Parses "ledN=on" / "ledN=off" (line is already lowercase) */
 static void parseCommand(char *s){
@@ -46,17 +39,15 @@ int main(void){
     GPIOModuleEnable(SOC_GPIO_1_REGS); //Enabling the GPIO
     GPIOModuleReset(SOC_GPIO_1_REGS); //Resetting the GPIO1 module
 
-    for (int j=LED_FIRST; j<LED_FIRST+LED_COUNT; j++){
+    for (int j=21; j<25; j++){
         GPIODirModeSet(SOC_GPIO_1_REGS, j, GPIO_DIR_OUTPUT); //Set all user LED to outputs
     }
 
     UARTprintf("\nStarterWare Program");
     UARTprintf("\nType command: ");
 
-    char line[LINE_MAX];
+    char line[32];
     int len = 0;        // chars currently in line[]
-    int tick = 0;       // ticks spent in current blink phase
-    int ledOn = 0;      // current blink phase (1 = on)
 
     while(1){
         /* 1. Read every char waiting in the UART FIFO, never block */
@@ -74,25 +65,25 @@ int main(void){
                     len--;
                     UARTPutc('\b'); UARTPutc(' '); UARTPutc('\b');
                 }
-            } else if (len < LINE_MAX-1){            // normal char
+            } else if (len < 31){            // normal char
                 if (c >= 'A' && c <= 'Z') c += 32;   // to lowercase
                 line[len++] = (char)c;
                 UARTPutc((unsigned char)c);          // echo
             }
         }
 
-        /* 2. Advance the blink timer */
-        tick++;
-        if (ledOn && tick >= ON_TICKS){ ledOn = 0; tick = 0; }
-        else if (!ledOn && tick >= OFF_TICKS){ ledOn = 1; tick = 0; }
-
-        /* 3. Drive the LEDs: enabled ones follow the blink, others stay off */
-        for (int k=0; k<LED_COUNT; k++){
-            GPIOPinWrite(SOC_GPIO_1_REGS, LED_FIRST+k,
-                         (flags[k] && ledOn) ? GPIO_PIN_HIGH : GPIO_PIN_LOW);
+        /* 2. Blink: enabled LEDs on, wait, all LEDs off, wait */
+        for (int j=21; j<25; j++){
+            if (flags[j-21]==1){
+                GPIOPinWrite(SOC_GPIO_1_REGS, j, GPIO_PIN_HIGH); //High
+            }
         }
+        delay(0x5000);
 
-        delay(TICK_DELAY);
+        for (int j=21; j<25; j++){
+            GPIOPinWrite(SOC_GPIO_1_REGS, j, GPIO_PIN_LOW); //Low
+        }
+        delay(0x15000);
     }
 
     return 0;
