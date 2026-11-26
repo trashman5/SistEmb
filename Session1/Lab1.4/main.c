@@ -13,10 +13,7 @@ static void LedsInit(void);
 static void SetLight(unsigned int state);
 
 static volatile unsigned int flagIsr = 0;
-
-/* DMTimer2 runs at 24 MHz: overflow after 24,000,000 ticks = 1 second
- * 0xFFFFFFFF - 24000000 + 1 = 0xFE91CA00 */
-#define INITIAL_COUNT (0xFE91CA00u)
+#define INITIAL_COUNT (0xFF000000u) //clock a 24Mhz ~0.7seg
 
 /* User LEDs (same as Lab 1.3): GPIO1_21..GPIO1_24 */
 #define LED_GREEN  21   // LED1
@@ -24,21 +21,22 @@ static volatile unsigned int flagIsr = 0;
 #define LED_RED    23   // LED3
 #define LED_4      24   // LED4 (not used, kept off)
 
-/* Traffic light states and their durations in seconds */
+/* Traffic light states and their durations in timer ticks (~0.7 s each)
+ * GREEN: 7 ticks ~4.9 s, AMBER: 1 tick ~0.7 s, RED: 7 ticks ~4.9 s */
 enum { GREEN = 0, AMBER = 1, RED = 2 };
-static const unsigned int duration[3] = {5, 1, 5};
+static const unsigned int duration[3] = {7, 1, 7};
 static const char *name[3] = {"GREEN", "AMBER", "RED"};
 
 int main(void)
 {
     unsigned int state = GREEN;
-    unsigned int seconds = 0;
+    unsigned int ticks = 0;
 
     UARTStdioInit();             //Initialize the UART console
     LedsInit();                  //Configure user LEDs as outputs
     DMTimer2ModuleClkConfig();   //Enable clocks for the DMTimer2 (24Mhz)
     DMTimerAintcConfigure();     //Register DMTimer2 interrupts on to AINTC
-    DMTimerSetUp(INITIAL_COUNT); //1 second period, auto-reload
+    DMTimerSetUp(INITIAL_COUNT); //~0.7 s period, auto-reload
 
     DMTimerIntEnable(SOC_DMTIMER_2_REGS, DMTIMER_INT_OVF_EN_FLAG); //Enable the DMTimer interrupts
     IntMasterIRQEnable();        //Enable IRQ in CPSR
@@ -51,11 +49,11 @@ int main(void)
 
     while(1)
     {
-        if(flagIsr == 1) {       // one second elapsed
+        if(flagIsr == 1) {       // one timer tick (~0.7 s) elapsed
             flagIsr = 0;
-            seconds++;
-            if(seconds >= duration[state]) {
-                seconds = 0;
+            ticks++;
+            if(ticks >= duration[state]) {
+                ticks = 0;
                 state = (state + 1) % 3;   // GREEN -> AMBER -> RED -> GREEN
                 SetLight(state);
                 UARTprintf("\r%s  ", name[state]);
@@ -108,6 +106,6 @@ static void DMTimerIsr(void)
 {
     DMTimerIntDisable(SOC_DMTIMER_2_REGS, DMTIMER_INT_OVF_EN_FLAG); //Disable Interrupts
     DMTimerIntStatusClear(SOC_DMTIMER_2_REGS, DMTIMER_INT_OVF_IT_FLAG);//Clear the status flag
-    flagIsr = 1; // one second tick
+    flagIsr = 1; // one timer tick (~0.7 s)
     DMTimerIntEnable(SOC_DMTIMER_2_REGS, DMTIMER_INT_OVF_EN_FLAG); //Enable Interrupts
 }
