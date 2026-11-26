@@ -48,8 +48,6 @@ int main(void){
 
     char line[32];
     int len = 0;        // chars currently in line[]
-    int tick = 0;       // ticks spent in current blink phase
-    int ledOn = 0;      // current blink phase (1 = on)
 
     while(1){
         /* 1. Read every char waiting in the UART FIFO, never block */
@@ -74,18 +72,18 @@ int main(void){
             }
         }
 
-        /* 2. Advance the blink timer */
-        tick++;
-        if (ledOn && tick >= 0x50){ ledOn = 0; tick = 0; }
-        else if (!ledOn && tick >= 0x150){ ledOn = 1; tick = 0; }
-
-        /* 3. Drive the LEDs: enabled ones follow the blink, others stay off */
-        for (int k=0; k<4; k++){
-            GPIOPinWrite(SOC_GPIO_1_REGS, 21+k,
-                         (flags[k] && ledOn) ? GPIO_PIN_HIGH : GPIO_PIN_LOW);
+        /* 2. Blink: enabled LEDs on, wait, all LEDs off, wait */
+        for (int j=21; j<25; j++){
+            if (flags[j-21]==1){
+                GPIOPinWrite(SOC_GPIO_1_REGS, j, GPIO_PIN_HIGH); //High
+            }
         }
+        delay(0x5000);
 
-        delay(0x100);
+        for (int j=21; j<25; j++){
+            GPIOPinWrite(SOC_GPIO_1_REGS, j, GPIO_PIN_LOW); //Low
+        }
+        delay(0x15000);
     }
 
     return 0;
