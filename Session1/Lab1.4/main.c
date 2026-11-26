@@ -1,4 +1,3 @@
-// Lab 1.4 StarterWare APIs: Timers - Traffic light with the user LEDs
 #include "soc_AM335x.h"
 #include "beaglebone.h"
 #include "interrupt.h"
@@ -15,14 +14,11 @@ static void SetLight(unsigned int state);
 static volatile unsigned int flagIsr = 0;
 #define INITIAL_COUNT (0xFF000000u) //clock a 24Mhz ~0.7seg
 
-/* User LEDs (same as Lab 1.3): GPIO1_21..GPIO1_24 */
 #define LED_GREEN  21   // LED1
 #define LED_AMBER  22   // LED2
 #define LED_RED    23   // LED3
-#define LED_4      24   // LED4 (not used, kept off)
 
-/* Traffic light states and their durations in timer ticks (~0.7 s each)
- * GREEN: 7 ticks ~4.9 s, AMBER: 1 tick ~0.7 s, RED: 7 ticks ~4.9 s */
+//Light States
 enum { GREEN = 0, AMBER = 1, RED = 2 };
 static const unsigned int duration[3] = {7, 1, 7};
 static const char *name[3] = {"GREEN", "AMBER", "RED"};
@@ -41,7 +37,7 @@ int main(void)
     DMTimerIntEnable(SOC_DMTIMER_2_REGS, DMTIMER_INT_OVF_EN_FLAG); //Enable the DMTimer interrupts
     IntMasterIRQEnable();        //Enable IRQ in CPSR
 
-    UARTprintf("\f\nTraffic light PBM-Tecnun:\n");
+    UARTprintf("\f\nTraffic light:\n");
     SetLight(state);
     UARTprintf("\r%s  ", name[state]);
 
@@ -71,7 +67,7 @@ static void LedsInit(void)
     GPIOModuleEnable(SOC_GPIO_1_REGS);   //Enabling the GPIO
     GPIOModuleReset(SOC_GPIO_1_REGS);    //Resetting the GPIO1 module
 
-    for (int j = LED_GREEN; j <= LED_4; j++) {
+    for (int j = 21; j <= 23; j++) {
         GPIODirModeSet(SOC_GPIO_1_REGS, j, GPIO_DIR_OUTPUT); //User LEDs as outputs
         GPIOPinWrite(SOC_GPIO_1_REGS, j, GPIO_PIN_LOW);      //All off
     }
